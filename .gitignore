@@ -120,6 +120,9 @@ venv.bak/
 # mkdocs documentation
 /site
 
+# migrations
+migrations/
+
 # mypy
 .mypy_cache/
 .dmypy.json
@@ -128,5 +131,3 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Pyre type checker
-migrations/
