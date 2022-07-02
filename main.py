@@ -142,18 +142,28 @@ def export_json():
     connection = engine.connect()
     dataset = connection.execute(stmt).fetchall()
     if dataset:
-        objects_list = []
+        date_list = {}
+        delta_list = {}
+        deltalag_list = {}
+        lag_num_list = {}
+        counter = 1
         for object in dataset:
-            object_dict = {
-                'date': object.date.strftime("%d.%m.%Y"),
-                'delta': object.delta,
-                'deltalag': 0 if object.deltalag is None else object.deltalag,
-                'lag_num': abs(object.delta - (
-                    float(0 if object.deltalag is None else object.deltalag)))}
-            objects_list.append(object_dict)
+            date = object.date.strftime('%d.%m.%Y')
+            delta = object.delta
+            deltalag = 0 if object.deltalag is None else object.deltalag
+            lag_num = abs(object.delta - (
+                float(0 if object.deltalag is None else object.deltalag)))
+            date_list[counter] = date
+            delta_list[counter] = delta
+            deltalag_list[counter] = deltalag
+            lag_num_list[counter] = lag_num
+            counter += 1
         return jsonify(
-            data=objects_list,
-            message="OK"
+            message='OK',
+            date=date_list,
+            delta=delta_list,
+            deltalag=deltalag_list,
+            lag_num=lag_num_list,
         )
     return jsonify(
         data=0,
@@ -161,7 +171,7 @@ def export_json():
     )
 
 
-@app.route('/export/pandas/', methods=['GET'])
+@ app.route('/export/pandas/', methods=['GET'])
 def export_pandas():
     dataset = DataModel.query.filter_by().all()
     if dataset:
