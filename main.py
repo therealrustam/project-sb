@@ -2,21 +2,25 @@ import os
 
 import pandas as pd
 from dateutil import parser
-from flask import (Flask, flash, jsonify, make_response, redirect, request,
-                   url_for)
+from flask import (Flask, flash, jsonify, redirect, request)
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from openpyxl import load_workbook
+from sqlalchemy import MetaData, Table, create_engine, select
 from werkzeug.utils import secure_filename
 
 UPLOAD_FOLDER = './download'
 ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
 app = Flask(__name__)
-app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:1ZakonOma@localhost/db"
+app.config['SQLALCHEMY_DATABASE_URI'
+           ] = 'postgresql://postgres:1ZakonOma@localhost/db'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
+
+metadata = MetaData()
+engine = create_engine('postgresql://postgres:1ZakonOma@localhost/db')
 
 
 class DataModel(db.Model):
@@ -31,7 +35,7 @@ class DataModel(db.Model):
         self.delta = delta
 
     def __repr__(self):
-        return f""
+        return f"{self.id}"
 
 
 def allowed_file(filename):
@@ -112,7 +116,7 @@ def import_file():
             db.session.commit()
         return jsonify(
             result=0,
-            message="Данные из БД удалены"
+            message='Данные из БД удалены'
         )
     wb = load_workbook('./download/testData.xlsx')
     sheet = wb.get_sheet_by_name('Лист1')
@@ -127,18 +131,25 @@ def import_file():
         db.session.commit()
     return jsonify(
         amount=amount-1,
-        message="Данные введены в БД"
+        message='Данные введены в БД'
     )
 
 
 @app.route('/export/sql/', methods=['GET'])
 def export_json():
-    dataset = DataModel.query.filter_by().all()
+    dataset = Table('data-view', metadata, autoload_with=engine)
+    stmt = select(dataset)
+    connection = engine.connect()
+    dataset = connection.execute(stmt).fetchall()
     if dataset:
         objects_list = []
         for object in dataset:
-            object_dict = {"date": object.date,
-                           "delta": object.delta}
+            object_dict = {
+                'date': object.date.strftime("%d.%m.%Y"),
+                'delta': object.delta,
+                'deltalag': 0 if object.deltalag is None else object.deltalag,
+                'lag_num': abs(object.delta - (
+                    float(0 if object.deltalag is None else object.deltalag)))}
             objects_list.append(object_dict)
         return jsonify(
             data=objects_list,
@@ -146,7 +157,7 @@ def export_json():
         )
     return jsonify(
         data=0,
-        message="Данные отстутсвуют"
+        message='Данные отстутсвуют'
     )
 
 
@@ -162,12 +173,12 @@ def export_pandas():
         df = pd.DataFrame({'date': date_list,
                            'delta': delta_list})
         df = df.sort_values(by='date')
-        df['DeltaLag'] = (df['delta'].shift(-2, fill_value=0))
+        df['DeltaLag'] = (df['delta'].shift(2, fill_value=0))
         df['lag_num'] = (df['delta']-df['DeltaLag']).abs()
         return df.to_json(path_or_buf=None, date_format='iso')
     return jsonify(
         data=0,
-        message="Данные отстутсвуют"
+        message='Данные отстутсвуют'
     )
 
 
