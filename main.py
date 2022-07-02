@@ -1,11 +1,16 @@
 import os
-from flask import Flask, flash, request, redirect, url_for
-from werkzeug.utils import secure_filename
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 
-UPLOAD_FOLDER = 'd:/Dev/project-sb/download'
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
+import pandas as pd
+from dateutil import parser
+from flask import (Flask, flash, jsonify, make_response, redirect, request,
+                   url_for)
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
+from openpyxl import load_workbook
+from werkzeug.utils import secure_filename
+
+UPLOAD_FOLDER = './download'
+ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = "postgresql://postgres:1ZakonOma@localhost/db"
@@ -37,13 +42,10 @@ def allowed_file(filename):
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     if request.method == 'POST':
-        # check if the post request has the file part
         if 'file' not in request.files:
             flash('No file part')
             return redirect(request.url)
         file = request.files['file']
-        # If the user does not select a file, the browser submits an
-        # empty file without a filename.
         if file.filename == '':
             flash('No selected file')
             return redirect(request.url)
@@ -99,6 +101,74 @@ def download_file():
     <h1>Загружено</h1>
     </body>
     '''
+
+
+@app.route('/import/xlsx/', methods=['GET'])
+def import_file():
+    dataset = DataModel.query.filter_by().all()
+    if dataset:
+        for object in dataset:
+            db.session.delete(object)
+            db.session.commit()
+        return jsonify(
+            result=0,
+            message="Данные из БД удалены"
+        )
+    wb = load_workbook('./download/testData.xlsx')
+    sheet = wb.get_sheet_by_name('Лист1')
+    amount = sheet.max_row
+    for counter in range(2, amount+1):
+        date_string = sheet.cell(row=counter, column=1).value
+        datetime_object = parser.parse(date_string)
+        delta = float(
+            str(sheet.cell(row=counter, column=2).value).replace(',', '.'))
+        data = DataModel(datetime_object, delta)
+        db.session.add(data)
+        db.session.commit()
+    return jsonify(
+        amount=amount-1,
+        message="Данные введены в БД"
+    )
+
+
+@app.route('/export/sql/', methods=['GET'])
+def export_json():
+    dataset = DataModel.query.filter_by().all()
+    if dataset:
+        objects_list = []
+        for object in dataset:
+            object_dict = {"date": object.date,
+                           "delta": object.delta}
+            objects_list.append(object_dict)
+        return jsonify(
+            data=objects_list,
+            message="OK"
+        )
+    return jsonify(
+        data=0,
+        message="Данные отстутсвуют"
+    )
+
+
+@app.route('/export/pandas/', methods=['GET'])
+def export_pandas():
+    dataset = DataModel.query.filter_by().all()
+    if dataset:
+        date_list = []
+        delta_list = []
+        for object in dataset:
+            date_list.append(object.date)
+            delta_list.append(object.delta)
+        df = pd.DataFrame({'date': date_list,
+                           'delta': delta_list})
+        df = df.sort_values(by='date')
+        df['DeltaLag'] = (df['delta'].shift(-2, fill_value=0))
+        df['lag_num'] = (df['delta']-df['DeltaLag']).abs()
+        return df.to_json(path_or_buf=None, date_format='iso')
+    return jsonify(
+        data=0,
+        message="Данные отстутсвуют"
+    )
 
 
 if __name__ == '__main__':
