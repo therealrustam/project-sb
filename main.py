@@ -11,7 +11,7 @@ import os
 import pandas as pd
 import psycopg2
 from dateutil import parser
-from flask import Flask, flash, jsonify, redirect, request
+from flask import Flask, jsonify, request
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from openpyxl import load_workbook
@@ -71,18 +71,17 @@ def upload_file():
     '''
     if request.method == 'POST':
         if 'file' not in request.files:
-            flash('No file part')
-            return redirect(request.url)
+            return download_file('Файл не выбран')
         file = request.files['file']
         if file.filename == '':
-            flash('No selected file')
-            return redirect(request.url)
-        if file and allowed_file(file.filename):
+            return download_file('Файл не выбран')
+        if (file and allowed_file(file.filename)
+                and (file.filename == 'testData.xlsx')):
             filename = secure_filename(file.filename)
             path = './download/testData.xlsx'
             os.remove(path)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-            return download_file()
+            return download_file('Файл успешно загружен')
     return '''
     <!doctype html>
     <title>Загрузка вашего файла</title>
@@ -110,13 +109,13 @@ def upload_file():
 
 
 @app.route('/download/', methods=['GET'])
-def download_file():
+def download_file(message):
     '''
     Метод оповещения об успешной загрузке файла.
     '''
     return '''
     <!doctype html>
-    <title>Загружено</title>
+    <title>%s</title>
     <style>
         body {
             display: flex;
@@ -131,9 +130,9 @@ def download_file():
         }
         </style>
     <body>
-    <h1>Файл успешно загружен</h1>
+    <h1>%s</h1>
     </body>
-    '''
+    ''' % (message, message)
 
 
 @app.route('/import/xlsx/', methods=['GET'])
