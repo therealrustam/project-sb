@@ -67,17 +67,17 @@
 
 ## SQL код для создания VIEW Представления
 
-`CREATE VIEW data-view AS`
-`WITH result_data AS (`
-`SELECT data.date,`
-`data.delta`
-`FROM data`
-`ORDER BY data.date)`
-`SELECT result_data.date,`
-`result_data.delta,`
-`lag(result_data.delta, 2) OVER (ORDER BY result_data.date)`
-`AS deltalag`
-`FROM result_data`
+```CREATE VIEW data-view AS
+WITH result_data AS (
+         SELECT data.date,
+            data.delta
+           FROM data
+          ORDER BY data.date
+        )
+ SELECT result_data.date,
+    result_data.delta,
+    lag(result_data.delta, 2) OVER (ORDER BY result_data.date) AS deltalag
+   FROM result_data;```
 
 
 ## Авторы
