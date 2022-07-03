@@ -167,7 +167,7 @@ def export_json():
         )
     return jsonify(
         data=0,
-        message='Данные отстутсвуют'
+        message='Данные отсутствуют'
     )
 
 
@@ -188,7 +188,7 @@ def export_pandas():
         return df.to_json(path_or_buf=None, date_format='iso')
     return jsonify(
         data=0,
-        message='Данные отстутсвуют'
+        message='Данные отсутствуют'
     )
 
 
