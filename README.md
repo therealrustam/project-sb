@@ -77,7 +77,8 @@ WITH result_data AS (
         )
  SELECT result_data.date,
     result_data.delta,
-    lag(result_data.delta, 2) OVER (ORDER BY result_data.date) AS deltalag
+    lag(result_data.delta, 2) OVER 
+    (ORDER BY result_data.date) AS deltalag
    FROM result_data;
 ```
 
