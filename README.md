@@ -68,7 +68,7 @@
 ## SQL код для создания VIEW Представления
 
 ```
-CREATE VIEW data-view AS
+CREATE OR REPLACE VIEW data-view AS
 WITH result_data AS (
          SELECT data.date,
             data.delta

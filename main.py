@@ -1,29 +1,47 @@
+'''
+Микросервис на архитектуре REST API для
+загрузки файла в формате *.xlsx на сервер,
+импорта данных из файла в Базу Данных и
+выдачу данных из SQL-таблицы в формате JSON.
+
+'''
+
 import os
 
 import pandas as pd
+import psycopg2
 from dateutil import parser
-from flask import (Flask, flash, jsonify, redirect, request)
+from flask import Flask, flash, jsonify, redirect, request
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from openpyxl import load_workbook
 from sqlalchemy import MetaData, Table, create_engine, select
 from werkzeug.utils import secure_filename
 
-UPLOAD_FOLDER = './download'
-ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
 
+UPLOAD_FOLDER = './download'
+ALLOWED_EXTENSIONS = {'xlsx'}
 app = Flask(__name__)
+t_host = 'localhost'
+t_port = '5432'
+t_dbname = 'db'
+t_user = 'postgres'
+t_pw = '1ZakonOma'
 app.config['SQLALCHEMY_DATABASE_URI'
-           ] = 'postgresql://postgres:1ZakonOma@localhost/db'
+           ] = f'postgresql://{t_user}:{t_pw}@{t_host}/{t_dbname}'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-
 metadata = MetaData()
-engine = create_engine('postgresql://postgres:1ZakonOma@localhost/db')
+engine = create_engine(f'postgresql://{t_user}:{t_pw}@{t_host}/{t_dbname}')
+db_conn = psycopg2.connect(host=t_host, port=t_port,
+                           dbname=t_dbname, user=t_user, password=t_pw)
 
 
 class DataModel(db.Model):
+    '''
+    Метод создания модели данных.
+    '''
     __tablename__ = 'data'
 
     id = db.Column(db.Integer, primary_key=True)
@@ -39,12 +57,18 @@ class DataModel(db.Model):
 
 
 def allowed_file(filename):
+    '''
+    Метод проверки расширения файла.
+    '''
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+    '''
+    Метод загрузки файла на сервер.
+    '''
     if request.method == 'POST':
         if 'file' not in request.files:
             flash('No file part')
@@ -55,6 +79,8 @@ def upload_file():
             return redirect(request.url)
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
+            path = './download/testData.xlsx'
+            os.remove(path)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
             return download_file()
     return '''
@@ -85,6 +111,9 @@ def upload_file():
 
 @app.route('/download/', methods=['GET'])
 def download_file():
+    '''
+    Метод оповещения об успешной загрузке файла.
+    '''
     return '''
     <!doctype html>
     <title>Загружено</title>
@@ -102,13 +131,17 @@ def download_file():
         }
         </style>
     <body>
-    <h1>Загружено</h1>
+    <h1>Файл успешно загружен</h1>
     </body>
     '''
 
 
 @app.route('/import/xlsx/', methods=['GET'])
 def import_file():
+    '''
+    Метод загрузки данных из файла .xlsx
+    в базу данных.
+    '''
     dataset = DataModel.query.filter_by().all()
     if dataset:
         for object in dataset:
@@ -130,14 +163,19 @@ def import_file():
         db.session.add(data)
         db.session.commit()
     return jsonify(
-        amount=amount-1,
+        result=amount-1,
         message='Данные введены в БД'
     )
 
 
 @app.route('/export/sql/', methods=['GET'])
 def export_json():
-    dataset = Table('data-view', metadata, autoload_with=engine)
+    '''
+    Метод вывода данных из Представления
+    SQL в формате JSON.
+    '''
+    create_view()
+    dataset = Table('dataview', metadata, autoload_with=engine)
     stmt = select(dataset)
     connection = engine.connect()
     dataset = connection.execute(stmt).fetchall()
@@ -166,13 +204,17 @@ def export_json():
             lag_num=lag_num_list,
         )
     return jsonify(
-        data=0,
-        message='Данные отсутствуют'
+        message='Данные отсутствуют',
+        result=0
     )
 
 
 @ app.route('/export/pandas/', methods=['GET'])
 def export_pandas():
+    '''
+    Метод вывода данных из БД в формате JSON
+    с помощью библиотеки Pandas.
+    '''
     dataset = DataModel.query.filter_by().all()
     if dataset:
         date_list = []
@@ -190,6 +232,37 @@ def export_pandas():
         data=0,
         message='Данные отсутствуют'
     )
+
+
+@ app.route('/create/', methods=['GET'])
+def create_view():
+    """
+    Метод создания VIEW Представления
+    в PostgreSQL.
+    """
+    db_cursor = db_conn.cursor()
+    s = '''
+    CREATE OR REPLACE VIEW dataview AS
+    WITH result_data AS (
+         SELECT data.date,
+            data.delta
+           FROM data
+          ORDER BY data.date
+        )
+    SELECT result_data.date,
+    result_data.delta,
+    lag(result_data.delta, 2) OVER
+    (ORDER BY result_data.date) AS deltalag
+    FROM result_data;
+    '''
+    try:
+        db_cursor.execute(s)
+        db_conn.commit()
+    except psycopg2.Error as e:
+        e = str(e)
+        return jsonify(t_message=e)
+    db_cursor.close()
+    return jsonify(t_message="Представление VIEW создано")
 
 
 if __name__ == '__main__':
