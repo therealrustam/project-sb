@@ -198,7 +198,7 @@ def export_json():
             counter += 1
         return jsonify(
             message='OK',
-            date=date_list,
+            Rep_dt=date_list,
             delta=delta_list,
             deltalag=deltalag_list,
             lag_num=lag_num_list,
@@ -222,9 +222,9 @@ def export_pandas():
         for object in dataset:
             date_list.append(object.date)
             delta_list.append(object.delta)
-        df = pd.DataFrame({'date': date_list,
+        df = pd.DataFrame({'Rep_dt': date_list,
                            'delta': delta_list})
-        df = df.sort_values(by='date')
+        df = df.sort_values(by='Rep_dt')
         df['DeltaLag'] = (df['delta'].shift(2, fill_value=0))
         df['lag_num'] = (df['delta']-df['DeltaLag']).abs()
         return df.to_json(path_or_buf=None, date_format='iso')
