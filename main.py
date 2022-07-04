@@ -11,13 +11,12 @@ import os
 import pandas as pd
 import psycopg2
 from dateutil import parser
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, redirect, request
 from flask_migrate import Migrate
 from flask_sqlalchemy import SQLAlchemy
 from openpyxl import load_workbook
 from sqlalchemy import MetaData, Table, create_engine, select
 from werkzeug.utils import secure_filename
-
 
 UPLOAD_FOLDER = './download'
 ALLOWED_EXTENSIONS = {'xlsx'}
@@ -71,10 +70,10 @@ def upload_file():
     '''
     if request.method == 'POST':
         if 'file' not in request.files:
-            return download_file('Файл не выбран')
+            return redirect(request.url)
         file = request.files['file']
         if file.filename == '':
-            return download_file('Файл не выбран')
+            return redirect(request.url)
         if (file and allowed_file(file.filename)
                 and (file.filename == 'testData.xlsx')):
             filename = secure_filename(file.filename)
