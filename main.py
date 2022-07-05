@@ -39,7 +39,7 @@ db_conn = psycopg2.connect(host=t_host, port=t_port,
 
 class DataModel(db.Model):
     '''
-    Метод создания модели данных.
+    Класс создания модели данных.
     '''
     __tablename__ = 'data'
 
